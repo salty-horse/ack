@@ -76,9 +76,13 @@ sub main {
     }
 
     my $file_matching = $opt->{f} || $opt->{lines};
-    if ( !$file_matching ) {
+    if ( $file_matching ) {
+        $opt->{G} = defined $opt->{G} ? App::Ack::build_regex( $opt->{G}, $opt ) : undef;
+    }
+    else {
         @ARGV or App::Ack::die( 'No regular expression found.' );
         $opt->{regex} = App::Ack::build_regex( defined $opt->{regex} ? $opt->{regex} : shift @ARGV, $opt );
+        $opt->{G} = defined $opt->{G} ? qr/$opt->{G}/ : undef;
     }
 
     # check that all regexes do compile fine
@@ -257,14 +261,16 @@ Only paths matching I<REGEX> are included in the search.  The entire
 path and filename are matched against I<REGEX>, and I<REGEX> is a
 Perl regular expression, not a shell glob.
 
-The options B<-i>, B<-w>, B<-v>, and B<-Q> do not apply to this I<REGEX>.
+The options B<-i>, B<-w>, B<-v>, and B<-Q> do not apply to this I<REGEX>,
+unless the B<--line> or B<-f> options are also specified
 
 =item B<-g I<REGEX>>
 
 Print files where the relative path + filename matches I<REGEX>. This option is
 a convenience shortcut for B<-f> B<-G I<REGEX>>.
 
-The options B<-i>, B<-w>, B<-v>, and B<-Q> do not apply to this I<REGEX>.
+The options B<-i>, B<-w>, B<-v>, and B<-Q> do not apply to this I<REGEX>,
+unless the B<--line> or B<-f> options are also specified
 
 =item B<--group>, B<--nogroup>
 
@@ -2332,14 +2338,13 @@ sub get_iterator {
     # Starting points are always searched, no matter what
     my %starting_point = map { ($_ => 1) } @{$what};
 
-    my $g_regex = defined $opt->{G} ? qr/$opt->{G}/ : undef;
     my $file_filter;
 
-    if ( $g_regex ) {
+    if ( $opt->{G} ) {
         $file_filter
-            = $opt->{u}   ? sub { $File::Next::name =~ /$g_regex/ } # XXX Maybe this should be a 1, no?
-            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_searchable( $_ ) ) }
-            :               sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$g_regex/ && is_interesting( @_ ) ) }
+            = $opt->{u}   ? sub { $File::Next::name =~ /$opt->{G}/ } # XXX Maybe this should be a 1, no?
+            : $opt->{all} ? sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$opt->{G}/ && is_searchable( $_ ) ) }
+            :               sub { $starting_point{ $File::Next::name } || ( $File::Next::name =~ /$opt->{G}/ && is_interesting( @_ ) ) }
             ;
     }
     else {
